@@ -61,47 +61,32 @@ window.onload = () => {
 
     setInterval(drawBall, 50);
 
-     // iOS13 以後のスマートフォンやタブレットの傾きによる検出イベント
- button.onclick = () => {
-    DeviceOrientationEvent.requestPermission()
-    .then(response => {
-    if (response === 'granted') {
-    window.addEventListener('deviceorientation', function(event) {
-    orientation.gamma = event.gamma;
-    orientation.beta = event.beta;
-    output.innerHTML = "beta : " + event.gamma + "¥n";
-    output.innerHTML += "gamma: " + event.beta + "¥n";
-    }, true);
-    }
-    })
-    .catch( error => {
-   8
-    conslole.log(error);
+    const button = document.getElementById("button");
+    button.onclick = () => {
+        DeviceOrientationEvent.requestPermission()
+            .then(response => {
+                if (response === 'granted') {
+                    window.addEventListener('deviceorientation', (event) => {
+                        orientation.gamma = event.gamma || 0;
+                        orientation.beta = event.beta || 0;
+                        output.textContent = `beta: ${event.beta}\ngamma: ${event.gamma}`;
+                    });
+                }
+            })
+            .catch(console.log);
+    };
+
+    window.addEventListener('deviceorientation', (event) => {
+        orientation.gamma = event.gamma || 0;
+        orientation.beta = event.beta || 0;
+        output.textContent = `beta: ${event.beta}\ngamma: ${event.gamma}`;
     });
-    }
-    // Android スマートフォンやタブレットの傾きによる検出イベント
-    window.addEventListener('deviceorientation', function(event) {
-    orientation.gamma = event.gamma;
-    orientation.beta = event.beta;
-    output.innerHTML = "beta : " + event.gamma + "¥n";
-    output.innerHTML += "gamma: " + event.beta + "¥n";
-    }, false);
-    // コンピュータの左右矢印キー押下による検出イベント
-    window.addEventListener('keydown', function(event) {
-    if(event.key == "ArrowRight") {
-    orientation.gamma = orientation.gamma + 20;
-    }
-    if(event.key == "ArrowLeft") {
-    orientation.gamma = orientation.gamma - 20;
-    }
-    if(event.key == "ArrowUp") {
-    orientation.beta = orientation.beta - 20;
-    }
-    if(event.key == "ArrowDown") {
-    orientation.beta = orientation.beta + 20;
-    }
-    output.innerHTML = "beta : " + orientation.gamma + "¥n";
-    output.innerHTML += "gamma: " + orientation.beta + "¥n";
+
+    window.addEventListener('keydown', (event) => {
+        if (event.key === "ArrowRight") orientation.gamma += 20;
+        if (event.key === "ArrowLeft") orientation.gamma -= 20;
+        if (event.key === "ArrowUp") orientation.beta -= 20;
+        if (event.key === "ArrowDown") orientation.beta += 20;
+        output.textContent = `beta: ${orientation.beta}\ngamma: ${orientation.gamma}`;
     });
-   }
-   
+};
