@@ -1,15 +1,194 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width">
-    <script src="orientation-ball-class-kadai.js"></script>
-  </head>
+<head>
+<meta charset="utf-8" />
+<title>金沢観光ナビ - 渋滞情報切り替え</title>
+<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+<script src='https://api.mapbox.com/mapbox-gl-js/v3.8.0/mapbox-gl.js'></script>
+<script src='https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-language/v1.0.0/mapbox-gl-language.js'></script>
+<script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.min.js"></script>
+<link href='https://api.mapbox.com/mapbox-gl-js/v3.8.0/mapbox-gl.css' rel='stylesheet' />
+<link href='https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.css' rel='stylesheet' />
+<style>
+    body {
+        margin: 0;
+        font-family: 'Arial', sans-serif;
+    }
+    #map {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 100%;
+    }
+    #controls {
+        position: absolute;
+        top: 60px;
+        left: 10px;
+        z-index: 10;
+        background-color: rgba(255, 255, 255, 0.8);
+        padding: 10px;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        font-size: 14px;
+    }
+    #route-info {
+        position: absolute;
+        top: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: rgba(255, 255, 255, 0.8);
+        padding: 10px 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        font-size: 16px;
+        font-weight: bold;
+        z-index: 10;
+    }
+    .mapboxgl-ctrl-geocoder {
+        margin: 10px;
+        max-width: 500px;
+    }
+</style>
+</head>
+<body>
+    <div id="controls">
+        <label>
+            <input type="checkbox" id="traffic-toggle" checked> 渋滞情報を表示
+        </label>
+    </div>
+    <div id="route-info" style="display: none;">目的地: -, 距離: 0 km, 時間: 0 分</div>
+    <div id="map"></div>
+    <script>
+        mapboxgl.accessToken = 'pk.eyJ1IjoidGFrdW1pcXFxcSIsImEiOiJjbTRodmtyMm8wYml2MmtxeG02b251b2FtIn0.CPCjTt-Wt7n1GIdfg93rkw';
 
-  <body>
-    <canvas id="canvas0" width="300" height="300"></canvas></br></br>
-    <p>PCの場合は矢印キーでボールを動かす<br>Android端末の場合は端末を傾けて操作<br>iOS端末の場合は下記ボタンを押下してから操作する</p>
-    <button id="button">画面方向のアクセスを許可する</button></br>
-    <div id="output">センサーデータ</div> 
-  </body>
+        // 地図の初期設定（デフォルトで渋滞情報を表示）
+        let trafficStyle = 'mapbox://styles/mapbox/traffic-day-v2';
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: trafficStyle,
+            center: [136.66240338447, 36.562140121241],
+            zoom: 14
+        });
+
+        // 日本語対応
+        map.addControl(new MapboxLanguage({ defaultLanguage: 'ja' }));
+        map.addControl(new mapboxgl.NavigationControl());
+
+        // 渋滞フィルターの切り替え
+        document.getElementById('traffic-toggle').addEventListener('change', (event) => {
+            if (event.target.checked) {
+                map.setStyle('mapbox://styles/mapbox/traffic-day-v2'); // 渋滞情報を表示
+            } else {
+                map.setStyle('mapbox://styles/mapbox/streets-v11'); // 通常地図
+            }
+        });
+
+        // Geocoder検索機能
+        const geocoder = new MapboxGeocoder({
+            accessToken: mapboxgl.accessToken,
+            mapboxgl: mapboxgl,
+            placeholder: "場所を検索"
+        });
+        map.addControl(geocoder, 'top-left');
+ // おすすめ観光スポットデータ
+ const spots = [
+            { name: "兼六園", description: "日本三名園の一つで、四季折々の美しい景色を楽しめます。", coordinates: [136.662485, 36.561956] },
+            { name: "ひがし茶屋街", description: "江戸時代の風情を残す茶屋街。お土産や食事も楽しめます。", coordinates: [136.663412, 36.578283] },
+            { name: "21世紀美術館", description: "現代アートの展示を行う美術館。ユニークな建築も魅力。", coordinates: [136.662625, 36.561265] },
+            { name: "金沢城公園", description: "歴史ある城跡と広大な敷地を楽しめます。", coordinates: [136.656554, 36.561144] },
+            { name: "尾山神社", description: "歴史的で美しい神社。夜はライトアップが見どころです。", coordinates: [136.653634, 36.562357] }
+        ];
+
+        // 観光スポットのマーカー追加
+        spots.forEach(spot => {
+            new mapboxgl.Marker({ color: 'green' })
+                .setLngLat(spot.coordinates)
+                .setPopup(new mapboxgl.Popup().setHTML(
+                    `<h3>${spot.name}</h3>
+                     <p>${spot.description}</p>
+                     <button onclick="showRoute(${spot.coordinates[0]}, ${spot.coordinates[1]}, '${spot.name}')">ルート案内</button>`
+                ))
+                .addTo(map);
+        });
+        // 現在地マーカー
+        let userMarker = null;
+        let userLocation = null;
+
+        navigator.geolocation.getCurrentPosition(
+            position => {
+                userLocation = [position.coords.longitude, position.coords.latitude];
+                userMarker = new mapboxgl.Marker({ color: 'blue' })
+                    .setLngLat(userLocation)
+                    .setPopup(new mapboxgl.Popup().setHTML("<h3>現在地</h3>"))
+                    .addTo(map);
+
+                map.flyTo({ center: userLocation, zoom: 14 });
+            },
+            error => {
+                alert("現在地を取得できませんでした。");
+                console.error(error);
+            }
+        );
+
+        // 検索結果マーカーとルート案内
+        let searchMarker = null;
+
+        geocoder.on('result', e => {
+            const coordinates = e.result.geometry.coordinates;
+
+            // 検索結果のマーカー表示
+            if (searchMarker) searchMarker.remove();
+            searchMarker = new mapboxgl.Marker({ color: 'red' })
+                .setLngLat(coordinates)
+                .setPopup(new mapboxgl.Popup().setHTML(`<h3>${e.result.text}</h3>`))
+                .addTo(map);
+
+            map.flyTo({ center: coordinates, zoom: 14 });
+
+            // 現在地から検索結果へのルート案内
+            showRoute(coordinates[0], coordinates[1], e.result.text);
+        });
+
+        // ルート表示関数
+        function showRoute(destLng, destLat, name) {
+            if (!userLocation) {
+                alert("現在地を取得できません。位置情報を許可してください。");
+                return;
+            }
+
+            const url = `https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${userLocation[0]},${userLocation[1]};${destLng},${destLat}?geometries=geojson&overview=full&annotations=congestion&access_token=${mapboxgl.accessToken}`;
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    const route = data.routes[0].geometry;
+
+                    if (map.getSource('route')) {
+                        map.getSource('route').setData({ type: 'Feature', geometry: route });
+                    } else {
+                        map.addSource('route', { type: 'geojson', data: { type: 'Feature', geometry: route } });
+                        map.addLayer({
+                            id: 'route',
+                            type: 'line',
+                            source: 'route',
+                            layout: { 'line-join': 'round', 'line-cap': 'round' },
+                            paint: { 'line-color': '#ff0000', 'line-width': 4 }
+                        });
+                    }
+
+                    const distance = (data.routes[0].distance / 1000).toFixed(2);
+                    const duration = (data.routes[0].duration / 60).toFixed(0);
+
+                    // 画面上に距離と時間、目的地の名前を表示
+                    const routeInfo = document.getElementById('route-info');
+                    routeInfo.innerText = `目的地: ${name}, 距離: ${distance} km, 時間: 約${duration} 分`;
+                    routeInfo.style.display = 'block';
+                })
+                .catch(err => {
+                    alert("ルートの取得中にエラーが発生しました。");
+                    console.error(err);
+                });
+        }
+    </script>
+</body>
 </html>
